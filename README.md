@@ -174,4 +174,4 @@ Questions? Open an issue or contact via GitHub discussions.
 
 ---
 
-**Status**: 🟢 Data cleaning complete | 🟡 Embeddings in progress | ⚪ Mutation scoring pending
+**Status**: ⚪ Mutation scoring pending
