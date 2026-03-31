@@ -201,13 +201,3 @@ High ESM outlier score may reflect:
 - OR data quality issues (truncation, sequencing errors, unusual preprocessing)
 
 ---
-
-## Next steps (what comes after Step 04A)
-
-### Step 04B — Ebola
-Repeat the same hybrid process for Ebola:
-- Reference FASTA (Ebola protein reference)
-- Ebola cleaned dataset FASTA
-- Ebola embeddings + metadata  
-Outputs:
-- `ebola_site`
