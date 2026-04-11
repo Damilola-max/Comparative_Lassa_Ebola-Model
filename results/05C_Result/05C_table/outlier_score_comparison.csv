@@ -1,0 +1,3 @@
+virus,n_sequences,mean_outlier_score,std_outlier_score,n_high_outlier_gt80
+Lassa,780,51.74957,9.404971,13
+Ebola,1610,56.85499,16.605131,199

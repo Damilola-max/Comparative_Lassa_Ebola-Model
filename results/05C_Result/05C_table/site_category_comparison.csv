@@ -1,0 +1,11 @@
+virus,site_category,count,fraction
+Lassa,Critical,2,0.004073319755600814
+Lassa,Conserved,34,0.06924643584521385
+Lassa,Hotspot,171,0.34826883910386963
+Lassa,Intermediate,200,0.4073319755600815
+Lassa,MostlyGap,84,0.1710794297352342
+Ebola,Critical,669,0.9896449704142012
+Ebola,Conserved,6,0.008875739644970414
+Ebola,Hotspot,0,0.0
+Ebola,Intermediate,0,0.0
+Ebola,MostlyGap,1,0.0014792899408284023
