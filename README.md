@@ -11,12 +11,17 @@ This project uses **ESM (Evolutionary Scale Modeling)** - a protein language mod
 
 ## Key Questions Addressed
 
-✅ **Which mutations are harmless?** (Low embedding distance)
-✅ **Which mutations are dangerous?** (High embedding distance, altered properties)
-✅ **Where does the virus change most?** (High mutation rate regions)
-✅ **Where is it conserved?** (Critical sites with low tolerance)
-✅ **Which mutations signal adaptation?** (Adaptive mutations vs random)
-✅ **Which mutations need lab validation?** (High-risk sites)
+**Which mutations are harmless?** (Low embedding distance)
+
+**Which mutations are dangerous?** (High embedding distance, altered properties)
+
+**Where does the virus change most?** (High mutation rate regions)
+
+**Where is it conserved?** (Critical sites with low tolerance)
+
+**Which mutations signal adaptation?** (Adaptive mutations vs random)
+
+**Which mutations need lab validation?** (High-risk sites)
 
 ## Dataset
 
@@ -203,20 +208,7 @@ Patterns suggesting **positive selection**:
 - [Mutation Scoring Methods](https://huggingface.co/blog/AmelieSchreiber/mutation-scoring)
 - [Computational Biology with ML](https://310.ai/blog/computational-biology-with-ml-models)
 
-## Citation
-
-```
-@article{ComparativeLassaEbola2024,
-  title={Comparative mutation analysis of Lassa and Ebola proteins using ESM},
-  author={Damilola-max},
-  year={2024}
-}
-```
 
 ## Contact
 
-Questions? Open an issue or contact via GitHub discussions.
-
----
-
-**Status**: ⚪ Mutation scoring pending
+Questions? Open an issue or contact via Damilolamiracleolayemi@gmail.com. 
