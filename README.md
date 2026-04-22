@@ -144,6 +144,10 @@ python3 scripts/04_evaluate.py
 streamlit run app.py
 ```
 
+### Live Hosted App
+
+- https://mutation-analysis.streamlit.app
+
 Accepted upload formats:
 - FASTA (`.fasta`, `.fa`, `.faa`)
 - CSV with a `sequence` column
