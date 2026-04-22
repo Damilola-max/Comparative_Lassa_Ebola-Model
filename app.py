@@ -1,9 +1,18 @@
 from io import StringIO
+from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 from Bio import SeqIO
+
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+
+    REPORTLAB_AVAILABLE = True
+except Exception:
+    REPORTLAB_AVAILABLE = False
 
 from src.config import METRICS_PATH, MODEL_PATH
 from src.features.sequence_features import clean_sequence
@@ -50,6 +59,87 @@ def _explain_prediction(row: dict) -> str:
         f"{_atypicality_phrase(row['atypicality_zscore'])}. "
         "In practice, higher risk scores suggest the sequence pattern is less typical for its predicted class and may warrant closer review."
     )
+
+
+def _risk_style(category: str):
+    styles = {
+        "Harmless": ("#2e7d32", "🟢"),
+        "Neutral": ("#558b2f", "🟡"),
+        "Moderate": ("#f9a825", "🟠"),
+        "Dangerous": ("#ef6c00", "🟠"),
+        "Critical": ("#c62828", "🔴"),
+    }
+    return styles.get(category, ("#455a64", "⚪"))
+
+
+def _render_report_card(row: dict):
+    color, icon = _risk_style(row["mutation_risk_category"])
+    st.subheader("Single Sequence Report Card")
+    st.markdown(
+        f"""
+        <div style="border:2px solid {color}; border-radius:12px; padding:14px; margin-bottom:10px;">
+            <h4 style="margin:0 0 8px 0; color:{color};">{icon} Sequence {row['id']} - {row['predicted_virus']}</h4>
+            <p style="margin:4px 0;"><b>Confidence:</b> {row['confidence'] * 100:.2f}% ({_confidence_band(row['confidence'])})</p>
+            <p style="margin:4px 0;"><b>Mutation Risk:</b> {row['mutation_risk_score']:.2f}/100 ({row['mutation_risk_category']})</p>
+            <p style="margin:4px 0;"><b>Atypicality z-score:</b> {row['atypicality_zscore']:.3f}</p>
+            <p style="margin:8px 0 0 0;"><b>Interpretation:</b> {row['explanation']}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _build_pdf_report(result_df: pd.DataFrame) -> bytes:
+    if not REPORTLAB_AVAILABLE:
+        return b""
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    _, height = A4
+    y = height - 50
+
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(40, y, "Comparative Lassa-Ebola Sequence Prediction Report")
+    y -= 24
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(40, y, f"Total sequences: {len(result_df)}")
+    y -= 20
+
+    for row in result_df.to_dict(orient="records"):
+        if y < 120:
+            pdf.showPage()
+            y = height - 50
+            pdf.setFont("Helvetica", 10)
+
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(40, y, f"Sequence {row['id']}")
+        y -= 14
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(50, y, f"Predicted virus: {row['predicted_virus']}")
+        y -= 12
+        pdf.drawString(50, y, f"Confidence: {row['confidence'] * 100:.2f}%")
+        y -= 12
+        pdf.drawString(50, y, f"Risk score/category: {row['mutation_risk_score']:.2f} ({row['mutation_risk_category']})")
+        y -= 12
+        pdf.drawString(50, y, f"Atypicality z-score: {row['atypicality_zscore']:.3f}")
+        y -= 12
+
+        explanation = row["explanation"]
+        while explanation:
+            chunk = explanation[:120]
+            explanation = explanation[120:]
+            pdf.drawString(50, y, chunk)
+            y -= 12
+            if y < 120:
+                pdf.showPage()
+                y = height - 50
+                pdf.setFont("Helvetica", 10)
+
+        y -= 10
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer.read()
 
 
 def _parse_fasta_text(content: str):
@@ -117,6 +207,20 @@ def _render_text_interpretation(result_df: pd.DataFrame):
         st.markdown(f"- {row['explanation']}")
 
 
+def _render_report_download(result_df: pd.DataFrame):
+    st.subheader("Export")
+    if REPORTLAB_AVAILABLE:
+        pdf_bytes = _build_pdf_report(result_df)
+        st.download_button(
+            "Download PDF Report",
+            pdf_bytes,
+            file_name="sequence_report.pdf",
+            mime="application/pdf",
+        )
+    else:
+        st.info("Install `reportlab` to enable PDF export. CSV export is still available.")
+
+
 if not MODEL_PATH.exists():
     st.warning("No trained model found yet. Run: `python scripts/03_train.py`")
 else:
@@ -159,7 +263,16 @@ else:
             st.success(f"Predicted {len(result_df)} sequence(s).")
             st.dataframe(result_df, use_container_width=True)
             _render_summary_figures(result_df)
+
+            if len(result_df) == 1:
+                _render_report_card(result_df.iloc[0].to_dict())
+            else:
+                selected_id = st.selectbox("Select a sequence for detailed report card", result_df["id"].tolist())
+                selected_row = result_df[result_df["id"] == selected_id].iloc[0].to_dict()
+                _render_report_card(selected_row)
+
             _render_text_interpretation(result_df)
+            _render_report_download(result_df)
             st.download_button(
                 "Download predictions as CSV",
                 result_df.to_csv(index=False).encode("utf-8"),

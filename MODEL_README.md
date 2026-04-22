@@ -64,6 +64,11 @@ For each uploaded sequence, the app returns:
 - atypicality z-score
 - plain-language explanation sentence
 
+The app also includes:
+- a single-sequence report card panel with traffic-light risk badge
+- summary figures for prediction distribution and risk trends
+- PDF export containing an interpretable per-sequence report
+
 ## Limitations
 - This is a computational model, not a clinical or regulatory diagnostic.
 - Current feature set is composition-based; it does not use structural biology context.

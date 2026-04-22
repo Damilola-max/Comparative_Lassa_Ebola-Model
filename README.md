@@ -158,6 +158,8 @@ Output includes:
 - Atypicality z-score (how unusual vs known examples)
 - Natural-language explanation sentence for each sequence
 - Summary figures (class counts, risk counts, and confidence/risk trend)
+- Single-sequence report card with traffic-light risk badge
+- PDF export report for uploaded predictions
 
 ## Model Documentation
 
