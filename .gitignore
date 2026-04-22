@@ -11,5 +11,8 @@ venv/
 data/interim/
 data/processed/
 models/checkpoints/
-models/final/
+models/final/*
+!models/final/.gitkeep
+!models/final/best_model.joblib
+!models/final/training_metrics.json
 results/

@@ -115,6 +115,51 @@ pip install -r requirements.txt
 jupyter notebook 01_data_cleaning_exploration.ipynb
 ```
 
+## Train the Classification Model
+
+This project now includes a production-style classifier that learns to predict whether an uploaded protein sequence is closer to **Lassa** or **Ebola**.
+
+```bash
+python3 scripts/03_train.py
+```
+
+Artifacts produced:
+- `models/final/best_model.joblib`
+- `models/final/training_metrics.json`
+
+To print saved metrics later:
+
+```bash
+python3 scripts/04_evaluate.py
+```
+
+## Run Upload Prediction App
+
+```bash
+streamlit run app.py
+```
+
+Accepted upload formats:
+- FASTA (`.fasta`, `.fa`, `.faa`)
+- CSV with a `sequence` column
+- TXT (one sequence per line)
+
+Output includes:
+- Predicted class (`Lassa` or `Ebola`)
+- Confidence
+- Ebola probability score
+- Mutation risk score (0-100)
+- Mutation risk category (`Harmless`, `Neutral`, `Moderate`, `Dangerous`, `Critical`)
+- Atypicality z-score (how unusual vs known examples)
+- Natural-language explanation sentence for each sequence
+- Summary figures (class counts, risk counts, and confidence/risk trend)
+
+## Model Documentation
+
+For a complete explanation of model choice, training rationale, risk scoring method, limitations, and deployment usage, see:
+
+- `MODEL_README.md`
+
 ## Requirements
 
 ```

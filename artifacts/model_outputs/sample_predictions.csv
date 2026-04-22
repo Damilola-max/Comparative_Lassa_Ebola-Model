@@ -1,0 +1,4 @@
+id,sequence,sequence_length,predicted_virus,confidence,ebola_probability,mutation_risk_score,mutation_risk_category,atypicality_zscore
+demo_seq_1,ACDEFGHIKLMNPQRSTVWY,20,Lassa,0.9992881624453186,0.0007118375546813804,100.0,Critical,9.682858182847328
+demo_seq_2,MKTIIALSYIFCLVFADYKDDDDA,24,Ebola,0.9999936979315763,0.9999936979315763,100.0,Critical,219.52516233445812
+demo_seq_3,GGGGGGGGGGGGGGGGGGGGGGGGGG,26,Lassa,1.0,3.9685694157613407e-50,100.0,Critical,97.86562715226714
