@@ -24,7 +24,8 @@ st.title("Comparative Lassa-Ebola Sequence Classifier")
 st.write("Upload sequences and get a model prediction with confidence.")
 st.caption(
     "Interpretation note: this model uses sequence-length and amino-acid composition features. "
-    "Mutation risk is an outlier-style score based on distance from known class patterns in training data."
+    "Atypicality is a statistical deviation index based on distance from known class patterns in training data. "
+    "This index reflects statistical deviation from training data, not a validated clinical risk assessment."
 )
 
 
@@ -53,34 +54,34 @@ def _explain_prediction(row: dict) -> str:
     return (
         f"Sequence {row['id']} was classified as {row['predicted_virus']} with {confidence_pct:.2f}% confidence "
         f"({ _confidence_band(row['confidence']) } confidence). "
-        f"Its mutation risk score is {row['mutation_risk_score']:.2f}/100, which maps to the "
-        f"'{row['mutation_risk_category']}' category. "
+        f"Its atypicality index is {row['atypicality_index']:.2f}/100, which maps to the "
+        f"'{row['atypicality_band']}' band. "
         f"The atypicality z-score is {row['atypicality_zscore']:.2f}, meaning this sequence is "
         f"{_atypicality_phrase(row['atypicality_zscore'])}. "
-        "In practice, higher risk scores suggest the sequence pattern is less typical for its predicted class and may warrant closer review."
+        "In practice, higher atypicality values suggest the sequence pattern is less typical for its predicted class and may warrant closer review."
     )
 
 
-def _risk_style(category: str):
+def _atypicality_style(band: str):
     styles = {
-        "Harmless": ("#2e7d32", "🟢"),
-        "Neutral": ("#558b2f", "🟡"),
-        "Moderate": ("#f9a825", "🟠"),
-        "Dangerous": ("#ef6c00", "🟠"),
-        "Critical": ("#c62828", "🔴"),
+        "Low": ("#2e7d32", "🟢"),
+        "Below-Average": ("#558b2f", "🟡"),
+        "Average": ("#f9a825", "🟠"),
+        "Elevated": ("#ef6c00", "🟠"),
+        "High": ("#c62828", "🔴"),
     }
-    return styles.get(category, ("#455a64", "⚪"))
+    return styles.get(band, ("#455a64", "⚪"))
 
 
 def _render_report_card(row: dict):
-    color, icon = _risk_style(row["mutation_risk_category"])
+    color, icon = _atypicality_style(row["atypicality_band"])
     st.subheader("Single Sequence Report Card")
     st.markdown(
         f"""
         <div style="border:2px solid {color}; border-radius:12px; padding:14px; margin-bottom:10px;">
             <h4 style="margin:0 0 8px 0; color:{color};">{icon} Sequence {row['id']} - {row['predicted_virus']}</h4>
             <p style="margin:4px 0;"><b>Confidence:</b> {row['confidence'] * 100:.2f}% ({_confidence_band(row['confidence'])})</p>
-            <p style="margin:4px 0;"><b>Mutation Risk:</b> {row['mutation_risk_score']:.2f}/100 ({row['mutation_risk_category']})</p>
+            <p style="margin:4px 0;"><b>Atypicality Index:</b> {row['atypicality_index']:.2f}/100 ({row['atypicality_band']})</p>
             <p style="margin:4px 0;"><b>Atypicality z-score:</b> {row['atypicality_zscore']:.3f}</p>
             <p style="margin:8px 0 0 0;"><b>Interpretation:</b> {row['explanation']}</p>
         </div>
@@ -119,7 +120,7 @@ def _build_pdf_report(result_df: pd.DataFrame) -> bytes:
         y -= 12
         pdf.drawString(50, y, f"Confidence: {row['confidence'] * 100:.2f}%")
         y -= 12
-        pdf.drawString(50, y, f"Risk score/category: {row['mutation_risk_score']:.2f} ({row['mutation_risk_category']})")
+        pdf.drawString(50, y, f"Atypicality index/band: {row['atypicality_index']:.2f} ({row['atypicality_band']})")
         y -= 12
         pdf.drawString(50, y, f"Atypicality z-score: {row['atypicality_zscore']:.3f}")
         y -= 12
@@ -169,8 +170,8 @@ def _predict_rows(rows):
                 "predicted_virus": pred["predicted_virus"],
                 "confidence": round(pred["confidence"], 4),
                 "ebola_probability": round(pred["ebola_probability"], 4),
-                "mutation_risk_score": round(pred["mutation_risk_score"], 2),
-                "mutation_risk_category": pred["mutation_risk_category"],
+                "atypicality_index": round(pred["atypicality_index"], 2),
+                "atypicality_band": pred["atypicality_band"],
                 "atypicality_zscore": round(pred["atypicality_zscore"], 3),
             }
         )
@@ -192,12 +193,12 @@ def _render_summary_figures(result_df: pd.DataFrame):
         st.bar_chart(class_counts.set_index("virus"))
 
     with c2:
-        st.write("Risk category counts")
-        risk_counts = result_df["mutation_risk_category"].value_counts().rename_axis("risk").reset_index(name="count")
-        st.bar_chart(risk_counts.set_index("risk"))
+        st.write("Atypicality band counts")
+        band_counts = result_df["atypicality_band"].value_counts().rename_axis("band").reset_index(name="count")
+        st.bar_chart(band_counts.set_index("band"))
 
-    st.write("Confidence and mutation risk per sequence")
-    chart_df = result_df[["id", "confidence", "mutation_risk_score"]].copy()
+    st.write("Confidence and atypicality index per sequence")
+    chart_df = result_df[["id", "confidence", "atypicality_index"]].copy()
     st.line_chart(chart_df.set_index("id"))
 
 

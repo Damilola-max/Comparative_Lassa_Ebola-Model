@@ -25,21 +25,21 @@ def load_model_bundle() -> dict:
     }
 
 
-def _risk_category_from_score(score: float) -> str:
+def _atypicality_band_from_score(score: float) -> str:
     if score < 20:
-        return "Harmless"
+        return "Low"
     if score < 40:
-        return "Neutral"
+        return "Below-Average"
     if score < 60:
-        return "Moderate"
+        return "Average"
     if score < 80:
-        return "Dangerous"
-    return "Critical"
+        return "Elevated"
+    return "High"
 
 
-def _compute_risk_scores(features: pd.DataFrame, preds: np.ndarray, calibration: dict) -> List[dict]:
+def _compute_atypicality_scores(features: pd.DataFrame, preds: np.ndarray, calibration: dict) -> List[dict]:
     if not calibration:
-        return [{"risk_score": 50.0, "atypicality_zscore": 0.0}] * len(features)
+        return [{"atypicality_index": 50.0, "atypicality_zscore": 0.0}] * len(features)
 
     feature_columns = calibration["feature_columns"]
     aligned = features.reindex(columns=feature_columns, fill_value=0.0)
@@ -57,11 +57,11 @@ def _compute_risk_scores(features: pd.DataFrame, preds: np.ndarray, calibration:
         stats = calibration["class_distance_stats"][key]
         dist = np.linalg.norm(row - centroid)
         z = (dist - stats["mean"]) / max(stats["std"], 1e-8)
-        risk = 50.0 + 15.0 * z
-        risk = max(0.0, min(100.0, risk))
+        atyp_index = 50.0 + 15.0 * z
+        atyp_index = max(0.0, min(100.0, atyp_index))
         out_scores.append(
             {
-                "risk_score": float(risk),
+                "atypicality_index": float(atyp_index),
                 "atypicality_zscore": float(z),
             }
         )
@@ -77,22 +77,22 @@ def predict_sequences(sequences: Iterable[str]) -> List[dict]:
 
     probs = model.predict_proba(features)[:, 1]
     preds = (probs >= 0.5).astype(int)
-    risk_scores = _compute_risk_scores(features, preds, bundle.get("risk_calibration"))
+    atypicality_scores = _compute_atypicality_scores(features, preds, bundle.get("risk_calibration"))
 
     output = []
-    for sequence, prob, pred, risk_info in zip(cleaned, probs, preds, risk_scores):
+    for sequence, prob, pred, atyp_info in zip(cleaned, probs, preds, atypicality_scores):
         label = "Ebola" if pred == 1 else "Lassa"
         confidence = prob if pred == 1 else (1 - prob)
-        risk_score = risk_info["risk_score"]
+        atyp_index = atyp_info["atypicality_index"]
         output.append(
             {
                 "sequence_length": len(sequence),
                 "predicted_virus": label,
                 "confidence": float(confidence),
                 "ebola_probability": float(prob),
-                "mutation_risk_score": float(risk_score),
-                "mutation_risk_category": _risk_category_from_score(float(risk_score)),
-                "atypicality_zscore": float(risk_info["atypicality_zscore"]),
+                "atypicality_index": float(atyp_index),
+                "atypicality_band": _atypicality_band_from_score(float(atyp_index)),
+                "atypicality_zscore": float(atyp_info["atypicality_zscore"]),
             }
         )
     return output
