@@ -1,27 +1,37 @@
-from io import StringIO
-from io import BytesIO
+from io import StringIO, BytesIO
 from pathlib import Path
 
+import joblib
+import numpy as np
 import pandas as pd
 import streamlit as st
 from Bio import SeqIO
 
+# Matplotlib for rich charts
+import matplotlib
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.patches as mpatches
+
 try:
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
-
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
     REPORTLAB_AVAILABLE = True
 except Exception:
     REPORTLAB_AVAILABLE = False
 
 from src.config import METRICS_PATH, MODEL_PATH
-from src.features.sequence_features import clean_sequence
-from src.models.predict import predict_sequences
-
+from src.features.sequence_features import clean_sequence, amino_acid_frequency_features
+from src.models.predict import predict_sequences, load_model_bundle
 
 st.set_page_config(page_title="Lassa vs Ebola Sequence Classifier", layout="wide")
 st.title("Comparative Lassa-Ebola Sequence Classifier")
-st.write("Upload sequences and get a model prediction with confidence.")
+st.write("Upload sequences and get a model prediction with confidence and atypicality scoring.")
 st.caption(
     "Interpretation note: this model uses sequence-length and amino-acid composition features. "
     "Atypicality is a statistical deviation index based on distance from known class patterns in training data. "
@@ -29,6 +39,9 @@ st.caption(
 )
 
 
+# ──────────────────────────────────────────────
+# Helper styles
+# ──────────────────────────────────────────────
 def _confidence_band(confidence: float) -> str:
     if confidence >= 0.95:
         return "very high"
@@ -52,97 +65,284 @@ def _atypicality_phrase(z: float) -> str:
 def _explain_prediction(row: dict) -> str:
     confidence_pct = row["confidence"] * 100
     return (
-        f"Sequence {row['id']} was classified as {row['predicted_virus']} with {confidence_pct:.2f}% confidence "
-        f"({ _confidence_band(row['confidence']) } confidence). "
-        f"Its atypicality index is {row['atypicality_index']:.2f}/100, which maps to the "
+        f"Sequence {row['id']} was classified as **{row['predicted_virus']}** with {confidence_pct:.1f}% confidence "
+        f"({_confidence_band(row['confidence'])} confidence). "
+        f"Its atypicality index is {row['atypicality_index']:.1f}/100, which maps to the "
         f"'{row['atypicality_band']}' band. "
         f"The atypicality z-score is {row['atypicality_zscore']:.2f}, meaning this sequence is "
-        f"{_atypicality_phrase(row['atypicality_zscore'])}. "
-        "In practice, higher atypicality values suggest the sequence pattern is less typical for its predicted class and may warrant closer review."
+        f"{_atypicality_phrase(row['atypicality_zscore'])}."
     )
 
 
-def _atypicality_style(band: str):
-    styles = {
-        "Low": ("#2e7d32", "🟢"),
-        "Below-Average": ("#558b2f", "🟡"),
-        "Average": ("#f9a825", "🟠"),
-        "Elevated": ("#ef6c00", "🟠"),
-        "High": ("#c62828", "🔴"),
-    }
-    return styles.get(band, ("#455a64", "⚪"))
+# ──────────────────────────────────────────────
+# Color maps
+# ──────────────────────────────────────────────
+ATYP_COLORS = {
+    "Low": "#2e7d32",
+    "Below-Average": "#689f38",
+    "Average": "#fbc02d",
+    "Elevated": "#f57c00",
+    "High": "#c62828",
+}
+
+VIRUS_COLORS = {"Lassa": "#1565c0", "Ebola": "#c62828"}
 
 
+def _band_color(band: str):
+    return ATYP_COLORS.get(band, "#455a64")
+
+
+# ──────────────────────────────────────────────
+# Matplotlib charts
+# ──────────────────────────────────────────────
+def _fig_atypicality_gauge(value: float, band: str) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6, 2.5))
+    # Background bar (0-100)
+    ax.barh([0], [100], color="#e0e0e0", height=0.4, left=0)
+    # Color zones
+    zones = [(0, 20, "#2e7d32"), (20, 40, "#689f38"), (40, 60, "#fbc02d"),
+             (60, 80, "#f57c00"), (80, 100, "#c62828")]
+    for z0, z1, zc in zones:
+        ax.barh([0], [z1 - z0], color=zc, height=0.4, left=z0, alpha=0.6)
+    # Value marker
+    ax.axvline(value, color="black", linewidth=3)
+    ax.scatter([value], [0], color="black", s=150, zorder=5)
+    ax.text(value, 0.28, f"{value:.1f}", ha="center", va="bottom", fontsize=12, fontweight="bold")
+    ax.set_xlim(0, 100)
+    ax.set_ylim(-0.5, 0.5)
+    ax.set_yticks([])
+    ax.set_xticks([0, 20, 40, 60, 80, 100])
+    ax.set_xticklabels(["0", "20", "40", "60", "80", "100"])
+    ax.set_xlabel("Atypicality Index (0-100)", fontsize=11)
+    ax.set_title(f"Atypicality: {band}", fontsize=13, fontweight="bold", color=_band_color(band))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    plt.tight_layout()
+    return fig
+
+
+def _fig_class_distribution(result_df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(5, 4))
+    counts = result_df["predicted_virus"].value_counts()
+    colors = [VIRUS_COLORS.get(v, "#455a64") for v in counts.index]
+    bars = ax.bar(counts.index, counts.values, color=colors, edgecolor="white", linewidth=2)
+    ax.set_ylabel("Count", fontsize=11)
+    ax.set_title("Predicted Class Distribution", fontsize=12, fontweight="bold")
+    for bar, val in zip(bars, counts.values):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                str(val), ha="center", va="bottom", fontsize=11, fontweight="bold")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.tight_layout()
+    return fig
+
+
+def _fig_band_distribution(result_df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6, 4))
+    band_order = ["Low", "Below-Average", "Average", "Elevated", "High"]
+    counts = result_df["atypicality_band"].value_counts().reindex(band_order, fill_value=0)
+    colors = [_band_color(b) for b in counts.index]
+    bars = ax.barh(counts.index, counts.values, color=colors, edgecolor="white", linewidth=2)
+    ax.set_xlabel("Count", fontsize=11)
+    ax.set_title("Atypicality Band Distribution", fontsize=12, fontweight="bold")
+    for bar, val in zip(bars, counts.values):
+        if val > 0:
+            ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
+                    str(int(val)), ha="left", va="center", fontsize=10, fontweight="bold")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.invert_yaxis()
+    plt.tight_layout()
+    return fig
+
+
+def _fig_confidence_vs_atypicality(result_df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(6, 5))
+    for virus in result_df["predicted_virus"].unique():
+        subset = result_df[result_df["predicted_virus"] == virus]
+        ax.scatter(subset["atypicality_index"], subset["confidence"],
+                   c=VIRUS_COLORS.get(virus, "#455a64"), label=virus,
+                   s=120, alpha=0.8, edgecolors="white", linewidth=1.5)
+    ax.set_xlabel("Atypicality Index", fontsize=11)
+    ax.set_ylabel("Confidence", fontsize=11)
+    ax.set_title("Confidence vs Atypicality", fontsize=12, fontweight="bold")
+    ax.set_ylim(0, 1.05)
+    ax.legend(title="Predicted", loc="lower left")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.tight_layout()
+    return fig
+
+
+def _fig_atypicality_per_sequence(result_df: pd.DataFrame) -> plt.Figure:
+    fig, ax = plt.subplots(figsize=(8, 4))
+    colors = [_band_color(b) for b in result_df["atypicality_band"]]
+    bars = ax.bar(range(len(result_df)), result_df["atypicality_index"], color=colors,
+                  edgecolor="white", linewidth=0.5)
+    ax.set_xticks(range(len(result_df)))
+    ax.set_xticklabels(result_df["id"], rotation=45, ha="right", fontsize=8)
+    ax.set_ylabel("Atypicality Index", fontsize=11)
+    ax.set_title("Atypicality Index per Sequence", fontsize=12, fontweight="bold")
+    ax.axhline(50, color="black", linestyle="--", alpha=0.3, label="Baseline (50)")
+    ax.legend()
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.tight_layout()
+    return fig
+
+
+def _fig_composition_radar(row: dict) -> plt.Figure:
+    # Simple amino-acid composition bar chart for the sequence
+    seq = row.get("sequence", "")
+    if not seq:
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.text(0.5, 0.5, "Composition data not available", ha="center", va="center", fontsize=12)
+        ax.axis("off")
+        return fig
+    aa_list = list("ACDEFGHIKLMNPQRSTVWY")
+    counts = {aa: seq.count(aa) for aa in aa_list}
+    fig, ax = plt.subplots(figsize=(8, 3.5))
+    bars = ax.bar(aa_list, [counts[aa] for aa in aa_list], color="#455a64", edgecolor="white")
+    ax.set_xlabel("Amino Acid", fontsize=10)
+    ax.set_ylabel("Count", fontsize=10)
+    ax.set_title(f"Amino Acid Composition — {row['id'][:40]}", fontsize=11, fontweight="bold")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.tight_layout()
+    return fig
+
+
+# ──────────────────────────────────────────────
+# Report card (enhanced)
+# ──────────────────────────────────────────────
 def _render_report_card(row: dict):
-    color, icon = _atypicality_style(row["atypicality_band"])
-    st.subheader("Single Sequence Report Card")
+    color = _band_color(row["atypicality_band"])
+    confidence_pct = row["confidence"] * 100
+
+    st.markdown("---")
+    st.subheader("Detailed Report Card")
+
+    # Top metrics row
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Predicted Virus", row["predicted_virus"])
+    c2.metric("Confidence", f"{confidence_pct:.1f}%", _confidence_band(row["confidence"]))
+    c3.metric("Atypicality Index", f"{row['atypicality_index']:.1f}/100", row["atypicality_band"])
+    c4.metric("Z-Score", f"{row['atypicality_zscore']:.2f}", _atypicality_phrase(row["atypicality_zscore"]))
+
+    # Gauge
+    st.pyplot(_fig_atypicality_gauge(row["atypicality_index"], row["atypicality_band"]), use_container_width=True)
+
+    # Explanation box
     st.markdown(
         f"""
-        <div style="border:2px solid {color}; border-radius:12px; padding:14px; margin-bottom:10px;">
-            <h4 style="margin:0 0 8px 0; color:{color};">{icon} Sequence {row['id']} - {row['predicted_virus']}</h4>
-            <p style="margin:4px 0;"><b>Confidence:</b> {row['confidence'] * 100:.2f}% ({_confidence_band(row['confidence'])})</p>
-            <p style="margin:4px 0;"><b>Atypicality Index:</b> {row['atypicality_index']:.2f}/100 ({row['atypicality_band']})</p>
-            <p style="margin:4px 0;"><b>Atypicality z-score:</b> {row['atypicality_zscore']:.3f}</p>
-            <p style="margin:8px 0 0 0;"><b>Interpretation:</b> {row['explanation']}</p>
+        <div style="border-left: 5px solid {color}; padding: 12px 16px; background-color: #fafafa; border-radius: 0 8px 8px 0;">
+            <b>Interpretation:</b> {_explain_prediction(row)}
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+    # Composition chart
+    if "sequence" in row:
+        st.pyplot(_fig_composition_radar(row), use_container_width=True)
 
+
+# ──────────────────────────────────────────────
+# PDF Report (enhanced with ReportLab tables)
+# ──────────────────────────────────────────────
 def _build_pdf_report(result_df: pd.DataFrame) -> bytes:
     if not REPORTLAB_AVAILABLE:
         return b""
 
     buffer = BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-    _, height = A4
-    y = height - 50
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=2*cm, leftMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    story = []
 
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawString(40, y, "Comparative Lassa-Ebola Sequence Prediction Report")
-    y -= 24
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(40, y, f"Total sequences: {len(result_df)}")
-    y -= 20
+    # Title
+    story.append(Paragraph("<b>Comparative Lassa-Ebola Sequence Prediction Report</b>", styles["Title"]))
+    story.append(Paragraph(f"Total sequences analyzed: <b>{len(result_df)}</b>", styles["Normal"]))
+    story.append(Spacer(1, 0.5*cm))
 
+    # Summary table
+    summary_data = [["Metric", "Value"]]
+    class_counts = result_df["predicted_virus"].value_counts().to_dict()
+    for v, c in class_counts.items():
+        summary_data.append([f"Predicted {v}", str(c)])
+    band_counts = result_df["atypicality_band"].value_counts().to_dict()
+    for b, c in band_counts.items():
+        summary_data.append([f"Band: {b}", str(c)])
+    summary_data.append(["Mean Atypicality Index", f"{result_df['atypicality_index'].mean():.2f}"])
+    summary_data.append(["Mean Confidence", f"{result_df['confidence'].mean():.3f}"])
+
+    summary_table = Table(summary_data, colWidths=[8*cm, 6*cm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1565c0")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 11),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f5f5f5")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 10),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.8*cm))
+
+    # Per-sequence detail table
+    story.append(Paragraph("<b>Per-Sequence Results</b>", styles["Heading2"]))
+    story.append(Spacer(1, 0.3*cm))
+
+    detail_data = [["ID", "Predicted", "Confidence", "Atypicality", "Band", "Z-Score"]]
     for row in result_df.to_dict(orient="records"):
-        if y < 120:
-            pdf.showPage()
-            y = height - 50
-            pdf.setFont("Helvetica", 10)
+        detail_data.append([
+            str(row["id"])[:30],
+            row["predicted_virus"],
+            f"{row['confidence']:.3f}",
+            f"{row['atypicality_index']:.1f}",
+            row["atypicality_band"],
+            f"{row['atypicality_zscore']:.2f}",
+        ])
 
-        pdf.setFont("Helvetica-Bold", 11)
-        pdf.drawString(40, y, f"Sequence {row['id']}")
-        y -= 14
-        pdf.setFont("Helvetica", 10)
-        pdf.drawString(50, y, f"Predicted virus: {row['predicted_virus']}")
-        y -= 12
-        pdf.drawString(50, y, f"Confidence: {row['confidence'] * 100:.2f}%")
-        y -= 12
-        pdf.drawString(50, y, f"Atypicality index/band: {row['atypicality_index']:.2f} ({row['atypicality_band']})")
-        y -= 12
-        pdf.drawString(50, y, f"Atypicality z-score: {row['atypicality_zscore']:.3f}")
-        y -= 12
+    detail_table = Table(detail_data, colWidths=[4*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2*cm])
+    detail_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#37474f")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(detail_table)
+    story.append(Spacer(1, 0.5*cm))
 
-        explanation = row["explanation"]
-        while explanation:
-            chunk = explanation[:120]
-            explanation = explanation[120:]
-            pdf.drawString(50, y, chunk)
-            y -= 12
-            if y < 120:
-                pdf.showPage()
-                y = height - 50
-                pdf.setFont("Helvetica", 10)
+    # Disclaimer
+    story.append(Paragraph(
+        "<i>Disclaimer: Atypicality scores are statistical deviation indices derived from training data "
+        "distance metrics. They are not validated clinical risk assessments and should not be used for "
+        "diagnostic or therapeutic decisions without independent experimental validation.</i>",
+        styles["Italic"]
+    ))
 
-        y -= 10
-
-    pdf.save()
+    doc.build(story)
     buffer.seek(0)
     return buffer.read()
 
 
+# ──────────────────────────────────────────────
+# Parsing
+# ──────────────────────────────────────────────
 def _parse_fasta_text(content: str):
     handle = StringIO(content)
     records = list(SeqIO.parse(handle, "fasta"))
@@ -157,6 +357,9 @@ def _parse_plain_text(content: str):
     return [{"id": f"seq_{i + 1}", "sequence": line} for i, line in enumerate(lines)]
 
 
+# ──────────────────────────────────────────────
+# Prediction
+# ──────────────────────────────────────────────
 def _predict_rows(rows):
     sequences = [clean_sequence(row["sequence"]) for row in rows]
     outputs = predict_sequences(sequences)
@@ -165,6 +368,7 @@ def _predict_rows(rows):
         result_rows.append(
             {
                 "id": row["id"],
+                "sequence": clean_sequence(row["sequence"]),
                 "input_length": len(row["sequence"]),
                 "clean_length": pred["sequence_length"],
                 "predicted_virus": pred["predicted_virus"],
@@ -176,52 +380,83 @@ def _predict_rows(rows):
             }
         )
     result_df = pd.DataFrame(result_rows)
-    result_df["explanation"] = [
-        _explain_prediction(row)
-        for row in result_df.to_dict(orient="records")
-    ]
     return result_df
 
 
-def _render_summary_figures(result_df: pd.DataFrame):
-    st.subheader("Prediction Summary")
-    c1, c2 = st.columns(2)
+# ──────────────────────────────────────────────
+# Summary dashboard
+# ──────────────────────────────────────────────
+def _render_summary_dashboard(result_df: pd.DataFrame):
+    st.markdown("---")
+    st.subheader("Batch Summary Dashboard")
 
-    with c1:
-        st.write("Predicted class counts")
-        class_counts = result_df["predicted_virus"].value_counts().rename_axis("virus").reset_index(name="count")
-        st.bar_chart(class_counts.set_index("virus"))
-
-    with c2:
-        st.write("Atypicality band counts")
-        band_counts = result_df["atypicality_band"].value_counts().rename_axis("band").reset_index(name="count")
-        st.bar_chart(band_counts.set_index("band"))
-
-    st.write("Confidence and atypicality index per sequence")
-    chart_df = result_df[["id", "confidence", "atypicality_index"]].copy()
-    st.line_chart(chart_df.set_index("id"))
-
-
-def _render_text_interpretation(result_df: pd.DataFrame):
-    st.subheader("Detailed Interpretation")
-    for row in result_df.to_dict(orient="records"):
-        st.markdown(f"- {row['explanation']}")
-
-
-def _render_report_download(result_df: pd.DataFrame):
-    st.subheader("Export")
-    if REPORTLAB_AVAILABLE:
-        pdf_bytes = _build_pdf_report(result_df)
-        st.download_button(
-            "Download PDF Report",
-            pdf_bytes,
-            file_name="sequence_report.pdf",
-            mime="application/pdf",
+    # KPI cards
+    cols = st.columns(5)
+    metrics = [
+        ("Sequences", len(result_df)),
+        ("Lassa", (result_df["predicted_virus"] == "Lassa").sum()),
+        ("Ebola", (result_df["predicted_virus"] == "Ebola").sum()),
+        ("Mean Atypicality", f"{result_df['atypicality_index'].mean():.1f}"),
+        ("Mean Confidence", f"{result_df['confidence'].mean():.3f}"),
+    ]
+    for col, (label, val) in zip(cols, metrics):
+        col.markdown(
+            f"""
+            <div style="text-align:center; padding:10px; background:#f5f5f5; border-radius:8px;">
+                <div style="font-size:11px; color:#666;">{label}</div>
+                <div style="font-size:22px; font-weight:bold; color:#1565c0;">{val}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-    else:
-        st.info("Install `reportlab` to enable PDF export. CSV export is still available.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Charts row 1
+    c1, c2 = st.columns(2)
+    with c1:
+        st.pyplot(_fig_class_distribution(result_df), use_container_width=True)
+    with c2:
+        st.pyplot(_fig_band_distribution(result_df), use_container_width=True)
+
+    # Charts row 2
+    c3, c4 = st.columns(2)
+    with c3:
+        st.pyplot(_fig_confidence_vs_atypicality(result_df), use_container_width=True)
+    with c4:
+        st.pyplot(_fig_atypicality_per_sequence(result_df), use_container_width=True)
 
 
+# ──────────────────────────────────────────────
+# Export
+# ──────────────────────────────────────────────
+def _render_report_download(result_df: pd.DataFrame):
+    st.markdown("---")
+    st.subheader("Export Results")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button(
+            "Download CSV",
+            result_df.to_csv(index=False).encode("utf-8"),
+            file_name="sequence_predictions.csv",
+            mime="text/csv",
+        )
+    with c2:
+        if REPORTLAB_AVAILABLE:
+            pdf_bytes = _build_pdf_report(result_df)
+            st.download_button(
+                "Download PDF Report",
+                pdf_bytes,
+                file_name="sequence_report.pdf",
+                mime="application/pdf",
+            )
+        else:
+            st.info("Install `reportlab` to enable PDF export.")
+
+
+# ──────────────────────────────────────────────
+# Main app
+# ──────────────────────────────────────────────
 if not MODEL_PATH.exists():
     st.warning("No trained model found yet. Run: `python scripts/03_train.py`")
 else:
@@ -262,23 +497,23 @@ else:
 
             result_df = _predict_rows(rows)
             st.success(f"Predicted {len(result_df)} sequence(s).")
-            st.dataframe(result_df, use_container_width=True)
-            _render_summary_figures(result_df)
+            st.dataframe(result_df.drop(columns=["sequence"]), use_container_width=True)
 
+            # Dashboard
+            _render_summary_dashboard(result_df)
+
+            # Report cards
             if len(result_df) == 1:
                 _render_report_card(result_df.iloc[0].to_dict())
             else:
-                selected_id = st.selectbox("Select a sequence for detailed report card", result_df["id"].tolist())
+                st.markdown("---")
+                st.subheader("Individual Sequence Reports")
+                selected_id = st.selectbox("Select a sequence for detailed report", result_df["id"].tolist())
                 selected_row = result_df[result_df["id"] == selected_id].iloc[0].to_dict()
                 _render_report_card(selected_row)
 
-            _render_text_interpretation(result_df)
+            # Export
             _render_report_download(result_df)
-            st.download_button(
-                "Download predictions as CSV",
-                result_df.to_csv(index=False).encode("utf-8"),
-                file_name="sequence_predictions.csv",
-                mime="text/csv",
-            )
+
         except Exception as exc:
             st.error(f"Failed to process file: {exc}")
