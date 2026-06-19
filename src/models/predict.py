@@ -3,22 +3,32 @@ from typing import Iterable, List, Optional
 import joblib
 import numpy as np
 import pandas as pd
-import torch
-
 from src.config import MODEL_PATH
 from src.features.sequence_features import amino_acid_frequency_features, clean_sequence
 
 
+_ESM_CACHE = {}
+
+
 def _load_esm_model():
-    import esm
-    model, alphabet = esm.pretrained.load_model_and_alphabet("esm2_t12_35M_UR50D")
-    model.eval()
-    if torch.cuda.is_available():
-        model = model.cuda()
-    return model, alphabet
+    if "model" in _ESM_CACHE:
+        return _ESM_CACHE["model"], _ESM_CACHE["alphabet"]
+    try:
+        import torch
+        import esm
+        model, alphabet = esm.pretrained.load_model_and_alphabet("esm2_t12_35M_UR50D")
+        model.eval()
+        if torch.cuda.is_available():
+            model = model.cuda()
+        _ESM_CACHE["model"] = model
+        _ESM_CACHE["alphabet"] = alphabet
+        return model, alphabet
+    except ImportError:
+        raise RuntimeError("ESM-2 requires 'torch' and 'fair-esm'. Install: pip install torch fair-esm")
 
 
 def _embed_sequences(sequences: List[str]) -> np.ndarray:
+    import torch
     model, alphabet = _load_esm_model()
     batch_converter = alphabet.get_batch_converter()
     data = [(f"seq_{i}", seq) for i, seq in enumerate(sequences)]
@@ -88,11 +98,18 @@ def predict_sequences(sequences: Iterable[str]) -> List[dict]:
     cleaned = [clean_sequence(s) for s in sequences]
     comp_features = amino_acid_frequency_features(cleaned)
     X_comp = comp_features.values
+    esm_unavailable = False
     if esm_dim > 0 and scaler is not None:
-        X_esm = _embed_sequences(cleaned)
-        X = np.hstack([X_esm, X_comp])
-        feature_df = pd.DataFrame(X, columns=[f"esm_{i}" for i in range(X_esm.shape[1])] + list(comp_features.columns))
-        X_s = scaler.transform(X)
+        try:
+            X_esm = _embed_sequences(cleaned)
+            X = np.hstack([X_esm, X_comp])
+            feature_df = pd.DataFrame(X, columns=[f"esm_{i}" for i in range(X_esm.shape[1])] + list(comp_features.columns))
+            X_s = scaler.transform(X)
+        except Exception:
+            # Fallback: composition-only if ESM fails (e.g., torch not installed)
+            esm_unavailable = True
+            feature_df = comp_features
+            X_s = X_comp
     else:
         feature_df = comp_features
         X_s = X_comp
@@ -124,6 +141,7 @@ def predict_sequences(sequences: Iterable[str]) -> List[dict]:
             "atypicality_band": _atypicality_band_from_score(float(atyp_index)),
             "atypicality_zscore": float(atyp_z),
             "mutation_risk_score": float(mutation_risk),
+            "esm_unavailable": esm_unavailable,
         })
     return output
 

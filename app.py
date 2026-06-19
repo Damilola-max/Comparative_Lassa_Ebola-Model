@@ -505,6 +505,15 @@ else:
 
             result_df = _predict_rows(rows)
             st.success(f"Predicted {len(result_df)} sequence(s).")
+
+            # Warn if ESM-2 embeddings are unavailable (torch not installed)
+            if result_df.get("esm_unavailable", pd.Series([False])).any():
+                st.warning(
+                    "⚠️ ESM-2 embeddings unavailable (torch not installed). "
+                    "Running in fallback mode with composition-only features. "
+                    "Accuracy may be reduced for atypical sequences."
+                )
+
             st.dataframe(result_df.drop(columns=["sequence"]), use_container_width=True)
 
             # Dashboard
