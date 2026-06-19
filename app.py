@@ -1,8 +1,6 @@
 from io import StringIO, BytesIO
 from pathlib import Path
 
-import joblib
-import numpy as np
 import pandas as pd
 import streamlit as st
 from Bio import SeqIO
@@ -11,12 +9,9 @@ from Bio import SeqIO
 import matplotlib
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib.patches as mpatches
 
 try:
     from reportlab.lib.pagesizes import A4
-    from reportlab.pdfgen import canvas
     from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -26,8 +21,8 @@ except Exception:
     REPORTLAB_AVAILABLE = False
 
 from src.config import METRICS_PATH, MODEL_PATH
-from src.features.sequence_features import clean_sequence, amino_acid_frequency_features
-from src.models.predict import predict_sequences, load_model_bundle
+from src.features.sequence_features import clean_sequence
+from src.models.predict import predict_sequences
 
 st.set_page_config(page_title="Lassa vs Ebola Sequence Classifier", layout="wide")
 st.title("Comparative Lassa-Ebola Sequence Classifier")
@@ -64,13 +59,24 @@ def _atypicality_phrase(z: float) -> str:
 
 def _explain_prediction(row: dict) -> str:
     confidence_pct = row["confidence"] * 100
+    pred = row["predicted_virus"]
+    if "Unknown" in pred:
+        return (
+            f"Sequence {row['id']} is **HIGHLY ATYPICAL** and does not match known "
+            f"Ebola or Lassa patterns (confidence {confidence_pct:.1f}%). "
+            f"Its atypicality index is {row['atypicality_index']:.1f}/100, which maps to the "
+            f"'{row['atypicality_band']}' band. This sequence may be from a different virus, "
+            f"contain significant mutations, or be a synthetic/artifact sequence. "
+            f"Mutation risk score: {row.get('mutation_risk_score', 0):.1f}/100."
+        )
     return (
-        f"Sequence {row['id']} was classified as **{row['predicted_virus']}** with {confidence_pct:.1f}% confidence "
+        f"Sequence {row['id']} was classified as **{pred}** with {confidence_pct:.1f}% confidence "
         f"({_confidence_band(row['confidence'])} confidence). "
         f"Its atypicality index is {row['atypicality_index']:.1f}/100, which maps to the "
         f"'{row['atypicality_band']}' band. "
         f"The atypicality z-score is {row['atypicality_zscore']:.2f}, meaning this sequence is "
-        f"{_atypicality_phrase(row['atypicality_zscore'])}."
+        f"{_atypicality_phrase(row['atypicality_zscore'])}. "
+        f"Mutation risk score: {row.get('mutation_risk_score', 0):.1f}/100."
     )
 
 
@@ -85,7 +91,7 @@ ATYP_COLORS = {
     "High": "#c62828",
 }
 
-VIRUS_COLORS = {"Lassa": "#1565c0", "Ebola": "#c62828"}
+VIRUS_COLORS = {"Lassa": "#1565c0", "Ebola": "#c62828", "Unknown / Highly Atypical": "#455a64"}
 
 
 def _band_color(band: str):
@@ -224,11 +230,12 @@ def _render_report_card(row: dict):
     st.subheader("Detailed Report Card")
 
     # Top metrics row
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Predicted Virus", row["predicted_virus"])
     c2.metric("Confidence", f"{confidence_pct:.1f}%", _confidence_band(row["confidence"]))
     c3.metric("Atypicality Index", f"{row['atypicality_index']:.1f}/100", row["atypicality_band"])
     c4.metric("Z-Score", f"{row['atypicality_zscore']:.2f}", _atypicality_phrase(row["atypicality_zscore"]))
+    c5.metric("Mutation Risk", f"{row.get('mutation_risk_score', 0):.1f}/100")
 
     # Gauge
     st.pyplot(_fig_atypicality_gauge(row["atypicality_index"], row["atypicality_band"]), use_container_width=True)
@@ -391,13 +398,14 @@ def _render_summary_dashboard(result_df: pd.DataFrame):
     st.subheader("Batch Summary Dashboard")
 
     # KPI cards
-    cols = st.columns(5)
+    cols = st.columns(6)
     metrics = [
         ("Sequences", len(result_df)),
-        ("Lassa", (result_df["predicted_virus"] == "Lassa").sum()),
         ("Ebola", (result_df["predicted_virus"] == "Ebola").sum()),
+        ("Lassa", (result_df["predicted_virus"] == "Lassa").sum()),
+        ("Unknown", (result_df["predicted_virus"].str.contains("Unknown")).sum()),
         ("Mean Atypicality", f"{result_df['atypicality_index'].mean():.1f}"),
-        ("Mean Confidence", f"{result_df['confidence'].mean():.3f}"),
+        ("Mean Mut Risk", f"{result_df.get('mutation_risk_score', pd.Series([0]*len(result_df))).mean():.1f}"),
     ]
     for col, (label, val) in zip(cols, metrics):
         col.markdown(
