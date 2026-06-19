@@ -16,3 +16,7 @@ models/final/*
 !models/final/best_model.joblib
 !models/final/training_metrics.json
 results/
+
+# Private manuscript and reviewer correspondence — local only
+manuscript/Comparative_Analysis_Refined_3_1.md
+manuscript/Response_to_Reviewer_*.md
