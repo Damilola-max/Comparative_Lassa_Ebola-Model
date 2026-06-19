@@ -24,13 +24,32 @@ from src.config import METRICS_PATH, MODEL_PATH
 from src.features.sequence_features import clean_sequence
 from src.models.predict import predict_sequences
 
-st.set_page_config(page_title="Lassa vs Ebola Sequence Classifier", layout="wide")
-st.title("Comparative Lassa-Ebola Sequence Classifier")
-st.write("Upload sequences and get a model prediction with confidence and atypicality scoring.")
-st.caption(
-    "Interpretation note: this model uses sequence-length and amino-acid composition features. "
-    "Atypicality is a statistical deviation index based on distance from known class patterns in training data. "
-    "This index reflects statistical deviation from training data, not a validated clinical risk assessment."
+st.set_page_config(page_title="Lassa vs Ebola GP Sequence Classifier", layout="wide")
+
+# ── Header ──
+header_col1, header_col2 = st.columns([3, 1])
+with header_col1:
+    st.title("🧬 Comparative Lassa–Ebola GP Sequence Classifier")
+    st.markdown(
+        "**ESM-2 + Composition Ensemble Model** — "
+        "Upload glycoprotein sequences to get virus classification, confidence, atypicality scoring, and mutation risk."
+    )
+with header_col2:
+    st.markdown(
+        """
+        <div style="text-align:right; font-size:12px; color:#666;">
+            <b>Model:</b> ESM-2 (480-dim) + AA Composition<br>
+            <b>Accuracy:</b> 1.000<br>
+            <b>Outlier Detection:</b> Enabled
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+st.info(
+    "ℹ️ **How it works:** This model uses ESM-2 protein language model embeddings (480 dimensions) "
+    "combined with amino-acid composition features. Atypicality measures how far a sequence sits from "
+    "known training patterns. The model flags highly atypical sequences (≥95 index or z≥3.0) as **Unknown**."
 )
 
 
@@ -225,17 +244,44 @@ def _fig_composition_radar(row: dict) -> plt.Figure:
 def _render_report_card(row: dict):
     color = _band_color(row["atypicality_band"])
     confidence_pct = row["confidence"] * 100
+    is_unknown = "Unknown" in row["predicted_virus"]
+    pred_color = VIRUS_COLORS.get(row["predicted_virus"], "#455a64")
 
     st.markdown("---")
-    st.subheader("Detailed Report Card")
+    st.subheader("📋 Detailed Report Card")
 
-    # Top metrics row
+    # Prediction badge (prominent)
+    pred_emoji = "🔴" if is_unknown else ("🦠" if row["predicted_virus"] == "Ebola" else "🧪")
+    st.markdown(
+        f"""
+        <div style="background:{pred_color}15; border:2px solid {pred_color}; border-radius:12px; padding:14px 20px; margin-bottom:16px;">
+            <div style="font-size:28px; font-weight:bold; color:{pred_color};">
+                {pred_emoji} {row['predicted_virus']}
+            </div>
+            <div style="font-size:13px; color:#555;">
+                Confidence: <b>{confidence_pct:.1f}%</b> &nbsp;|&nbsp;
+                Length: <b>{row['sequence_length']}</b> aa &nbsp;|&nbsp;
+                Mutation Risk: <b>{row.get('mutation_risk_score', 0):.1f}/100</b>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Warning banner for Unknown
+    if is_unknown:
+        st.error(
+            "⚠️ **HIGHLY ATYPICAL SEQUENCE DETECTED** — This sequence does not match known Ebola or Lassa "
+            "glycoprotein patterns. It may be from a different virus, contain major mutations, or be synthetic."
+        )
+
+    # Metrics row
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Predicted Virus", row["predicted_virus"])
-    c2.metric("Confidence", f"{confidence_pct:.1f}%", _confidence_band(row["confidence"]))
-    c3.metric("Atypicality Index", f"{row['atypicality_index']:.1f}/100", row["atypicality_band"])
-    c4.metric("Z-Score", f"{row['atypicality_zscore']:.2f}", _atypicality_phrase(row["atypicality_zscore"]))
-    c5.metric("Mutation Risk", f"{row.get('mutation_risk_score', 0):.1f}/100")
+    c1.metric("Confidence", f"{confidence_pct:.1f}%", _confidence_band(row["confidence"]))
+    c2.metric("Atypicality", f"{row['atypicality_index']:.1f}/100", row["atypicality_band"])
+    c3.metric("Z-Score", f"{row['atypicality_zscore']:.2f}", _atypicality_phrase(row["atypicality_zscore"]))
+    c4.metric("Mutation Risk", f"{row.get('mutation_risk_score', 0):.1f}/100")
+    c5.metric("Seq Length", f"{row['sequence_length']} aa")
 
     # Gauge
     st.pyplot(_fig_atypicality_gauge(row["atypicality_index"], row["atypicality_band"]), use_container_width=True)
@@ -378,12 +424,15 @@ def _predict_rows(rows):
                 "sequence": clean_sequence(row["sequence"]),
                 "input_length": len(row["sequence"]),
                 "clean_length": pred["sequence_length"],
+                "sequence_length": pred["sequence_length"],
                 "predicted_virus": pred["predicted_virus"],
                 "confidence": round(pred["confidence"], 4),
                 "ebola_probability": round(pred["ebola_probability"], 4),
                 "atypicality_index": round(pred["atypicality_index"], 2),
                 "atypicality_band": pred["atypicality_band"],
                 "atypicality_zscore": round(pred["atypicality_zscore"], 3),
+                "mutation_risk_score": round(pred.get("mutation_risk_score", 0), 2),
+                "esm_unavailable": pred.get("esm_unavailable", False),
             }
         )
     result_df = pd.DataFrame(result_rows)
@@ -395,24 +444,24 @@ def _predict_rows(rows):
 # ──────────────────────────────────────────────
 def _render_summary_dashboard(result_df: pd.DataFrame):
     st.markdown("---")
-    st.subheader("Batch Summary Dashboard")
+    st.subheader("📊 Batch Summary Dashboard")
 
-    # KPI cards
-    cols = st.columns(6)
+    # KPI cards with color coding
     metrics = [
-        ("Sequences", len(result_df)),
-        ("Ebola", (result_df["predicted_virus"] == "Ebola").sum()),
-        ("Lassa", (result_df["predicted_virus"] == "Lassa").sum()),
-        ("Unknown", (result_df["predicted_virus"].str.contains("Unknown")).sum()),
-        ("Mean Atypicality", f"{result_df['atypicality_index'].mean():.1f}"),
-        ("Mean Mut Risk", f"{result_df.get('mutation_risk_score', pd.Series([0]*len(result_df))).mean():.1f}"),
+        ("📁 Sequences", len(result_df), "#f5f5f5", "#333"),
+        ("🦠 Ebola", (result_df["predicted_virus"] == "Ebola").sum(), "#ffebee", "#c62828"),
+        ("🧪 Lassa", (result_df["predicted_virus"] == "Lassa").sum(), "#e3f2fd", "#1565c0"),
+        ("⚠️ Unknown", (result_df["predicted_virus"].str.contains("Unknown")).sum(), "#fff3e0", "#e65100"),
+        ("📈 Mean Atypicality", f"{result_df['atypicality_index'].mean():.1f}", "#f3e5f5", "#6a1b9a"),
+        ("🧬 Mean Mut Risk", f"{result_df.get('mutation_risk_score', pd.Series([0]*len(result_df))).mean():.1f}", "#e8f5e9", "#2e7d32"),
     ]
-    for col, (label, val) in zip(cols, metrics):
+    cols = st.columns(len(metrics))
+    for col, (label, val, bg, fg) in zip(cols, metrics):
         col.markdown(
             f"""
-            <div style="text-align:center; padding:10px; background:#f5f5f5; border-radius:8px;">
-                <div style="font-size:11px; color:#666;">{label}</div>
-                <div style="font-size:22px; font-weight:bold; color:#1565c0;">{val}</div>
+            <div style="text-align:center; padding:12px 6px; background:{bg}; border-radius:10px; border:1px solid {fg}30;">
+                <div style="font-size:11px; color:#666; margin-bottom:4px;">{label}</div>
+                <div style="font-size:24px; font-weight:bold; color:{fg};">{val}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -534,3 +583,23 @@ else:
 
         except Exception as exc:
             st.error(f"Failed to process file: {exc}")
+
+# ──────────────────────────────────────────────
+# Footer with manuscript links
+# ──────────────────────────────────────────────
+st.markdown("---")
+repo_base = "https://github.com/Damilola-max/Comparative_Lassa_Ebola-Model/blob/main"
+st.markdown(
+    f"""
+    <div style="text-align:center; padding:16px; background:#f8f9fa; border-radius:8px;">
+        <div style="font-size:14px; font-weight:bold; color:#333; margin-bottom:8px;">📄 Manuscript & Reviewer Responses</div>
+        <div style="font-size:12px; color:#555;">
+            <a href="{repo_base}/manuscript/Comparative_Analysis_Refined_3_1.md" target="_blank" style="color:#1565c0; text-decoration:none; margin-right:16px;">📝 Comparative Analysis (Main Manuscript)</a>
+            <a href="{repo_base}/manuscript/Response_to_Reviewer_1.md" target="_blank" style="color:#1565c0; text-decoration:none; margin-right:16px;">👤 Reviewer 1 Response</a>
+            <a href="{repo_base}/manuscript/Response_to_Reviewer_2.md" target="_blank" style="color:#1565c0; text-decoration:none; margin-right:16px;">👤 Reviewer 2 Response</a>
+            <a href="{repo_base}/manuscript/Response_to_Reviewer_3.md" target="_blank" style="color:#1565c0; text-decoration:none;">👤 Reviewer 3 Response</a>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
