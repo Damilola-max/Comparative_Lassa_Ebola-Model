@@ -29,7 +29,7 @@ st.set_page_config(page_title="Lassa vs Ebola GP Sequence Classifier", layout="w
 # ── Header ──
 header_col1, header_col2 = st.columns([3, 1])
 with header_col1:
-    st.title("🧬 Comparative Lassa–Ebola GP Sequence Classifier")
+    st.title("Comparative Lassa–Ebola GP Sequence Classifier")
     st.markdown(
         "**ESM-2 + Composition Ensemble Model** — "
         "Upload glycoprotein sequences to get virus classification, confidence, atypicality scoring, and mutation risk."
@@ -47,7 +47,7 @@ with header_col2:
     )
 
 st.info(
-    "ℹ️ **How it works:** This model uses ESM-2 protein language model embeddings (480 dimensions) "
+    "**How it works:** This model uses ESM-2 protein language model embeddings (480 dimensions) "
     "combined with amino-acid composition features. Atypicality measures how far a sequence sits from "
     "known training patterns. The model flags highly atypical sequences (≥95 index or z≥3.0) as **Unknown**."
 )
@@ -248,15 +248,14 @@ def _render_report_card(row: dict):
     pred_color = VIRUS_COLORS.get(row["predicted_virus"], "#455a64")
 
     st.markdown("---")
-    st.subheader("📋 Detailed Report Card")
+    st.subheader("Detailed Report Card")
 
     # Prediction badge (prominent)
-    pred_emoji = "🔴" if is_unknown else ("🦠" if row["predicted_virus"] == "Ebola" else "🧪")
     st.markdown(
         f"""
         <div style="background:{pred_color}15; border:2px solid {pred_color}; border-radius:12px; padding:14px 20px; margin-bottom:16px;">
             <div style="font-size:28px; font-weight:bold; color:{pred_color};">
-                {pred_emoji} {row['predicted_virus']}
+                {row['predicted_virus']}
             </div>
             <div style="font-size:13px; color:#555;">
                 Confidence: <b>{confidence_pct:.1f}%</b> &nbsp;|&nbsp;
@@ -271,7 +270,7 @@ def _render_report_card(row: dict):
     # Warning banner for Unknown
     if is_unknown:
         st.error(
-            "⚠️ **HIGHLY ATYPICAL SEQUENCE DETECTED** — This sequence does not match known Ebola or Lassa "
+            "**HIGHLY ATYPICAL SEQUENCE DETECTED** — This sequence does not match known Ebola or Lassa "
             "glycoprotein patterns. It may be from a different virus, contain major mutations, or be synthetic."
         )
 
@@ -444,16 +443,16 @@ def _predict_rows(rows):
 # ──────────────────────────────────────────────
 def _render_summary_dashboard(result_df: pd.DataFrame):
     st.markdown("---")
-    st.subheader("📊 Batch Summary Dashboard")
+    st.subheader("Batch Summary Dashboard")
 
     # KPI cards with color coding
     metrics = [
-        ("📁 Sequences", len(result_df), "#f5f5f5", "#333"),
-        ("🦠 Ebola", (result_df["predicted_virus"] == "Ebola").sum(), "#ffebee", "#c62828"),
-        ("🧪 Lassa", (result_df["predicted_virus"] == "Lassa").sum(), "#e3f2fd", "#1565c0"),
-        ("⚠️ Unknown", (result_df["predicted_virus"].str.contains("Unknown")).sum(), "#fff3e0", "#e65100"),
-        ("📈 Mean Atypicality", f"{result_df['atypicality_index'].mean():.1f}", "#f3e5f5", "#6a1b9a"),
-        ("🧬 Mean Mut Risk", f"{result_df.get('mutation_risk_score', pd.Series([0]*len(result_df))).mean():.1f}", "#e8f5e9", "#2e7d32"),
+        ("Sequences", len(result_df), "#f5f5f5", "#333"),
+        ("Ebola", (result_df["predicted_virus"] == "Ebola").sum(), "#ffebee", "#c62828"),
+        ("Lassa", (result_df["predicted_virus"] == "Lassa").sum(), "#e3f2fd", "#1565c0"),
+        ("Unknown", (result_df["predicted_virus"].str.contains("Unknown")).sum(), "#fff3e0", "#e65100"),
+        ("Mean Atypicality", f"{result_df['atypicality_index'].mean():.1f}", "#f3e5f5", "#6a1b9a"),
+        ("Mean Mut Risk", f"{result_df.get('mutation_risk_score', pd.Series([0]*len(result_df))).mean():.1f}", "#e8f5e9", "#2e7d32"),
     ]
     cols = st.columns(len(metrics))
     for col, (label, val, bg, fg) in zip(cols, metrics):
@@ -515,7 +514,7 @@ def _render_report_download(result_df: pd.DataFrame):
 # Main app
 # ──────────────────────────────────────────────
 if not MODEL_PATH.exists():
-    st.warning("No trained model found yet. Run: `python scripts/03_train.py`")
+    st.error("Model file not found. Please ensure the model is deployed with the app.")
 else:
     if METRICS_PATH.exists():
         st.caption(f"Using trained model: `{MODEL_PATH.name}`")
@@ -558,7 +557,7 @@ else:
             # Warn if ESM-2 embeddings are unavailable (torch not installed)
             if result_df.get("esm_unavailable", pd.Series([False])).any():
                 st.warning(
-                    "⚠️ ESM-2 embeddings unavailable (torch not installed). "
+                    "ESM-2 embeddings unavailable (torch not installed). "
                     "Running in fallback mode with composition-only features. "
                     "Accuracy may be reduced for atypical sequences."
                 )
@@ -584,22 +583,3 @@ else:
         except Exception as exc:
             st.error(f"Failed to process file: {exc}")
 
-# ──────────────────────────────────────────────
-# Footer with manuscript links
-# ──────────────────────────────────────────────
-st.markdown("---")
-repo_base = "https://github.com/Damilola-max/Comparative_Lassa_Ebola-Model/blob/main"
-st.markdown(
-    f"""
-    <div style="text-align:center; padding:16px; background:#f8f9fa; border-radius:8px;">
-        <div style="font-size:14px; font-weight:bold; color:#333; margin-bottom:8px;">📄 Manuscript & Reviewer Responses</div>
-        <div style="font-size:12px; color:#555;">
-            <a href="{repo_base}/manuscript/Comparative_Analysis_Refined_3_1.md" target="_blank" style="color:#1565c0; text-decoration:none; margin-right:16px;">📝 Comparative Analysis (Main Manuscript)</a>
-            <a href="{repo_base}/manuscript/Response_to_Reviewer_1.md" target="_blank" style="color:#1565c0; text-decoration:none; margin-right:16px;">👤 Reviewer 1 Response</a>
-            <a href="{repo_base}/manuscript/Response_to_Reviewer_2.md" target="_blank" style="color:#1565c0; text-decoration:none; margin-right:16px;">👤 Reviewer 2 Response</a>
-            <a href="{repo_base}/manuscript/Response_to_Reviewer_3.md" target="_blank" style="color:#1565c0; text-decoration:none;">👤 Reviewer 3 Response</a>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
