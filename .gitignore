@@ -34,5 +34,6 @@ models/final/*.joblib
 
 # Temporary scripts
 /tmp/
-scripts/gp_revision/train_*.py
-scripts/gp_revision/generate_figures.py
+scripts/fix_ref*.py
+scripts/gp_revision/*.py
+sample_upload_sequences.fasta
