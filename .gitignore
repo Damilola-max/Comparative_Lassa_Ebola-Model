@@ -37,3 +37,5 @@ models/final/*.joblib
 scripts/fix_ref*.py
 scripts/gp_revision/*.py
 sample_upload_sequences.fasta
+validation_artifacts/
+scripts/rnr_revision_analysis.py

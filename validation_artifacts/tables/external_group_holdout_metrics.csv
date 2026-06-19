@@ -1,3 +1,0 @@
-evaluation,model,n_train,n_test,accuracy,precision,recall,f1,roc_auc
-external_group_holdout,logistic_regression,2079,311,1.0,1.0,1.0,1.0,1.0
-external_group_holdout,random_forest,2079,311,1.0,1.0,1.0,1.0,1.0
