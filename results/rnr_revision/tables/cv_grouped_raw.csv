@@ -1,0 +1,11 @@
+fold,model,accuracy,precision,recall,f1,roc_auc,n_train,n_test
+1,logistic_regression,1.0,1.0,1.0,1.0,,1846,544
+1,random_forest,1.0,1.0,1.0,1.0,,1846,544
+2,logistic_regression,1.0,0.0,0.0,0.0,,1892,498
+2,random_forest,1.0,0.0,0.0,0.0,,1892,498
+3,logistic_regression,1.0,1.0,1.0,1.0,,1903,487
+3,random_forest,1.0,1.0,1.0,1.0,,1903,487
+4,logistic_regression,1.0,1.0,1.0,1.0,1.0,1957,433
+4,random_forest,1.0,1.0,1.0,1.0,1.0,1957,433
+5,logistic_regression,1.0,1.0,1.0,1.0,1.0,1962,428
+5,random_forest,1.0,1.0,1.0,1.0,1.0,1962,428

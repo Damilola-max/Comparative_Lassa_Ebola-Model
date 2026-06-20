@@ -1,0 +1,14 @@
+{
+  "centroid_dist": 2.4060542583465576,
+  "ebo_spread": 0.08850222080945969,
+  "las_spread": 1.0755853652954102,
+  "sep_ratio": 2.337414759099973,
+  "ebo_outliers": 344,
+  "las_outliers": 156,
+  "ebo_outlier_pct": 20.011634671320536,
+  "las_outlier_pct": 20.0,
+  "ebo_high_atypical": 38,
+  "las_high_atypical": 31,
+  "pca_var_pc1": 57.75207877159119,
+  "pca_var_pc2": 15.814104676246643
+}

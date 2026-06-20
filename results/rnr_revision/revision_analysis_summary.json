@@ -1,0 +1,11 @@
+{
+  "n_sequences": 2390,
+  "n_lassa": 780,
+  "n_ebola": 1610,
+  "exact_duplicate_sequences": 107,
+  "n_groups": 13,
+  "outputs": {
+    "tables": "/Users/user/CascadeProjects/Comparative_Lassa_Ebola-Model/results/rnr_revision/tables",
+    "figures": "/Users/user/CascadeProjects/Comparative_Lassa_Ebola-Model/results/rnr_revision/figures"
+  }
+}

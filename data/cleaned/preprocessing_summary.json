@@ -1,0 +1,16 @@
+{
+  "total_sequences": 2390,
+  "lassa_count": 780,
+  "ebola_count": 1610,
+  "lassa_avg_length": 1057.1871794871795,
+  "ebola_avg_length": 5869.032298136646,
+  "lassa_length_std": 54.83773088737901,
+  "ebola_length_std": 203.17694639858578,
+  "representative_sequences": 20,
+  "files_created": [
+    "data/processed/lassa_cleaned.fasta",
+    "data/processed/ebola_cleaned.fasta",
+    "data/processed/sequence_metadata.csv",
+    "data/processed/representative_sequences.fasta"
+  ]
+}
