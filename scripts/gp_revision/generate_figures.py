@@ -20,7 +20,7 @@ ASSETS.mkdir(parents=True, exist_ok=True)
 
 # ── Load data ─────────────────────────────────────────────────────────
 emb = torch.load(RESULTS / "gp_embeddings.pt", weights_only=False)
-embeddings = emb["embeddings"].numpy()
+embeddings = np.array(emb["embeddings"])
 ids = emb["ids"]
 
 df_meta = pd.read_csv(BASE / "data" / "cleaned" / "cleaned_sequences_gp_only.csv")
@@ -34,7 +34,7 @@ colors = [virus_colors.get(l, "#999") for l in labels]
 pca = PCA(n_components=2)
 pca_coords = pca.fit_transform(embeddings)
 
-fig, ax = plt.subplots(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(9, 5.5))
 for virus in ["Ebola", "Lassa"]:
     mask = np.array(labels) == virus
     ax.scatter(
@@ -42,8 +42,8 @@ for virus in ["Ebola", "Lassa"]:
         pca_coords[mask, 1],
         c=virus_colors[virus],
         label=virus,
-        alpha=0.5,
-        s=15,
+        alpha=0.55,
+        s=28,
         edgecolors="none",
     )
 

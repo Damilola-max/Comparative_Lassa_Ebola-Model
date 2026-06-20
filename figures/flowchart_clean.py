@@ -94,4 +94,6 @@ ax.text(6, 1.8, 'https://mutation-analysis.streamlit.app  |  streamlit run app.p
 plt.tight_layout()
 plt.savefig('/Users/user/CascadeProjects/Comparative_Lassa_Ebola-Model/figures/pipeline_flowchart_clean.png', dpi=300, bbox_inches='tight', facecolor='white')
 plt.savefig('/Users/user/CascadeProjects/Comparative_Lassa_Ebola-Model/figures/pipeline_flowchart_clean.pdf', bbox_inches='tight', facecolor='white')
-print('Done: pipeline_flowchart_clean.png and .pdf')
+plt.savefig('/Users/user/CascadeProjects/Comparative_Lassa_Ebola-Model/manuscript/assets/refined3_1/media/image1.png', dpi=300, bbox_inches='tight', facecolor='white')
+plt.savefig('/Users/user/CascadeProjects/Comparative_Lassa_Ebola-Model/manuscript/assets/refined3_1/media/image1.svg', bbox_inches='tight', facecolor='white')
+print('Done: pipeline_flowchart_clean.png/.pdf and manuscript image1.png/.svg')

@@ -11,9 +11,14 @@ except Exception:
     BIOPYTHON_AVAILABLE = False
 
 # Matplotlib for rich charts
-import matplotlib
-matplotlib.use("agg")
-import matplotlib.pyplot as plt
+try:
+    import matplotlib
+    matplotlib.use("agg")
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except Exception:
+    MATPLOTLIB_AVAILABLE = False
+    plt = None
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -215,8 +220,8 @@ def _fig_confidence_vs_atypicality(result_df: pd.DataFrame) -> plt.Figure:
 def _fig_atypicality_per_sequence(result_df: pd.DataFrame) -> plt.Figure:
     fig, ax = plt.subplots(figsize=(8, 4))
     colors = [_band_color(b) for b in result_df["atypicality_band"]]
-    bars = ax.bar(range(len(result_df)), result_df["atypicality_index"], color=colors,
-                  edgecolor="white", linewidth=0.5)
+    ax.bar(range(len(result_df)), result_df["atypicality_index"], color=colors,
+           edgecolor="white", linewidth=0.5)
     ax.set_xticks(range(len(result_df)))
     ax.set_xticklabels(result_df["id"], rotation=45, ha="right", fontsize=8)
     ax.set_ylabel("Atypicality Index", fontsize=11)
@@ -240,7 +245,7 @@ def _fig_composition_radar(row: dict) -> plt.Figure:
     aa_list = list("ACDEFGHIKLMNPQRSTVWY")
     counts = {aa: seq.count(aa) for aa in aa_list}
     fig, ax = plt.subplots(figsize=(8, 3.5))
-    bars = ax.bar(aa_list, [counts[aa] for aa in aa_list], color="#455a64", edgecolor="white")
+    ax.bar(aa_list, [counts[aa] for aa in aa_list], color="#455a64", edgecolor="white")
     ax.set_xlabel("Amino Acid", fontsize=10)
     ax.set_ylabel("Count", fontsize=10)
     ax.set_title(f"Amino Acid Composition — {row['id'][:40]}", fontsize=11, fontweight="bold")
@@ -295,7 +300,8 @@ def _render_report_card(row: dict):
     c5.metric("Seq Length", f"{row['sequence_length']} aa")
 
     # Gauge
-    st.pyplot(_fig_atypicality_gauge(row["atypicality_index"], row["atypicality_band"]), use_container_width=True)
+    if MATPLOTLIB_AVAILABLE:
+        st.pyplot(_fig_atypicality_gauge(row["atypicality_index"], row["atypicality_band"]), use_container_width=True)
 
     # Explanation box
     st.markdown(
@@ -504,18 +510,21 @@ def _render_summary_dashboard(result_df: pd.DataFrame):
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Charts row 1
-    c1, c2 = st.columns(2)
-    with c1:
-        st.pyplot(_fig_class_distribution(result_df), use_container_width=True)
-    with c2:
-        st.pyplot(_fig_band_distribution(result_df), use_container_width=True)
+    if MATPLOTLIB_AVAILABLE:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.pyplot(_fig_class_distribution(result_df), use_container_width=True)
+        with c2:
+            st.pyplot(_fig_band_distribution(result_df), use_container_width=True)
 
-    # Charts row 2
-    c3, c4 = st.columns(2)
-    with c3:
-        st.pyplot(_fig_confidence_vs_atypicality(result_df), use_container_width=True)
-    with c4:
-        st.pyplot(_fig_atypicality_per_sequence(result_df), use_container_width=True)
+        # Charts row 2
+        c3, c4 = st.columns(2)
+        with c3:
+            st.pyplot(_fig_confidence_vs_atypicality(result_df), use_container_width=True)
+        with c4:
+            st.pyplot(_fig_atypicality_per_sequence(result_df), use_container_width=True)
+    else:
+        st.info("Install `matplotlib` to enable charts.")
 
 
 # ──────────────────────────────────────────────
