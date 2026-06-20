@@ -11,12 +11,13 @@ venv/
 data/
 notebooks/
 results/
-models/
+models/*
 !models/.gitkeep
 # All manuscript content stays local-only
 manuscript/
 
 # Model binaries (large files — store locally only)
+!models/gp_revision/
 models/gp_revision/*.joblib
 !models/gp_revision/gp_classifier_v2.joblib
 models/final/*.joblib
