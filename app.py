@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from Bio import SeqIO
+
+try:
+    from Bio import SeqIO
+    BIOPYTHON_AVAILABLE = True
+except Exception:
+    BIOPYTHON_AVAILABLE = False
 
 # Matplotlib for rich charts
 import matplotlib
@@ -32,13 +37,13 @@ with header_col1:
     st.title("Comparative Lassa–Ebola GP Sequence Classifier")
     st.markdown(
         "**ESM-2 + Composition Ensemble Model** — "
-        "Upload glycoprotein sequences to get virus classification, confidence, atypicality scoring, and mutation risk."
+        "Upload glycoprotein sequences to get virus classification, confidence, atypicality scoring, and composition deviation."
     )
 with header_col2:
     st.markdown(
         """
         <div style="text-align:right; font-size:12px; color:#666;">
-            <b>Model:</b> ESM-2 (480-dim) + AA Composition<br>
+            <b>Model:</b> Composition features (length + AA freq)<br>
             <b>Accuracy:</b> 1.000<br>
             <b>Outlier Detection:</b> Enabled
         </div>
@@ -47,9 +52,16 @@ with header_col2:
     )
 
 st.info(
-    "**How it works:** This model uses ESM-2 protein language model embeddings (480 dimensions) "
-    "combined with amino-acid composition features. Atypicality measures how far a sequence sits from "
-    "known training patterns. The model flags highly atypical sequences (≥95 index or z≥3.0) as **Unknown**."
+    "**How it works:** The classifier uses lightweight composition features (sequence length + amino-acid "
+    "frequencies) for virus identification. Atypicality measures how far a sequence sits from known training "
+    "patterns. The model flags highly atypical sequences (≥95 index or z≥3.0) as **Unknown**. "
+    "ESM-2 embeddings are used for descriptive embedding-space analysis only, not for classification."
+)
+
+st.warning(
+    "**Intended use:** This application is a research and educational prototype for comparative sequence "
+    "analysis. It is not a validated clinical or surveillance tool. Predictions should not be used for "
+    "patient diagnosis, treatment selection, or public-health decisions without independent experimental validation."
 )
 
 
@@ -260,7 +272,7 @@ def _render_report_card(row: dict):
             <div style="font-size:13px; color:#555;">
                 Confidence: <b>{confidence_pct:.1f}%</b> &nbsp;|&nbsp;
                 Length: <b>{row['sequence_length']}</b> aa &nbsp;|&nbsp;
-                Mutation Risk: <b>{row.get('mutation_risk_score', 0):.1f}/100</b>
+                Composition Deviation: <b>{row.get('mutation_risk_score', 0):.1f}/100</b>
             </div>
         </div>
         """,
@@ -279,7 +291,7 @@ def _render_report_card(row: dict):
     c1.metric("Confidence", f"{confidence_pct:.1f}%", _confidence_band(row["confidence"]))
     c2.metric("Atypicality", f"{row['atypicality_index']:.1f}/100", row["atypicality_band"])
     c3.metric("Z-Score", f"{row['atypicality_zscore']:.2f}", _atypicality_phrase(row["atypicality_zscore"]))
-    c4.metric("Mutation Risk", f"{row.get('mutation_risk_score', 0):.1f}/100")
+    c4.metric("Comp Deviation", f"{row.get('mutation_risk_score', 0):.1f}/100")
     c5.metric("Seq Length", f"{row['sequence_length']} aa")
 
     # Gauge
@@ -396,11 +408,34 @@ def _build_pdf_report(result_df: pd.DataFrame) -> bytes:
 # Parsing
 # ──────────────────────────────────────────────
 def _parse_fasta_text(content: str):
-    handle = StringIO(content)
-    records = list(SeqIO.parse(handle, "fasta"))
+    if BIOPYTHON_AVAILABLE:
+        handle = StringIO(content)
+        records = list(SeqIO.parse(handle, "fasta"))
+        parsed = []
+        for idx, rec in enumerate(records, start=1):
+            parsed.append({"id": rec.id or f"seq_{idx}", "sequence": str(rec.seq)})
+        return parsed
+
+    # Pure-Python fallback when BioPython is unavailable
+    lines = content.splitlines()
     parsed = []
-    for idx, rec in enumerate(records, start=1):
-        parsed.append({"id": rec.id or f"seq_{idx}", "sequence": str(rec.seq)})
+    current_id = None
+    current_seq = []
+    idx = 0
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith(">"):
+            if current_id is not None:
+                parsed.append({"id": current_id, "sequence": "".join(current_seq)})
+                idx += 1
+            current_id = line[1:].split()[0] or f"seq_{idx + 1}"
+            current_seq = []
+        else:
+            current_seq.append(line)
+    if current_id is not None:
+        parsed.append({"id": current_id, "sequence": "".join(current_seq)})
     return parsed
 
 
@@ -452,7 +487,7 @@ def _render_summary_dashboard(result_df: pd.DataFrame):
         ("Lassa", (result_df["predicted_virus"] == "Lassa").sum(), "#e3f2fd", "#1565c0"),
         ("Unknown", (result_df["predicted_virus"].str.contains("Unknown")).sum(), "#fff3e0", "#e65100"),
         ("Mean Atypicality", f"{result_df['atypicality_index'].mean():.1f}", "#f3e5f5", "#6a1b9a"),
-        ("Mean Mut Risk", f"{result_df.get('mutation_risk_score', pd.Series([0]*len(result_df))).mean():.1f}", "#e8f5e9", "#2e7d32"),
+        ("Mean Comp Deviation", f"{result_df.get('mutation_risk_score', pd.Series([0]*len(result_df))).mean():.1f}", "#e8f5e9", "#2e7d32"),
     ]
     cols = st.columns(len(metrics))
     for col, (label, val, bg, fg) in zip(cols, metrics):
