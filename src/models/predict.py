@@ -55,6 +55,9 @@ def load_model_bundle() -> dict:
     return {"model": saved, "scaler": None, "risk_calibration": None, "feature_columns": None, "esm_dim": 0}
 
 
+_BUNDLE_CACHE = {}
+
+
 def _atypicality_band_from_score(score: float) -> str:
     if score < 20:
         return "Low"
@@ -90,32 +93,21 @@ def _compute_atypicality_scores(features: pd.DataFrame, preds: np.ndarray, calib
 
 
 def predict_sequences(sequences: Iterable[str]) -> List[dict]:
-    bundle = load_model_bundle()
-    model = bundle["model"]
-    scaler = bundle.get("scaler")
-    esm_dim = bundle.get("esm_dim", 0)
-    calibration = bundle.get("risk_calibration")
+    if not _BUNDLE_CACHE:
+        _BUNDLE_CACHE.update(load_model_bundle())
+    model = _BUNDLE_CACHE["model"]
+    calibration = _BUNDLE_CACHE.get("risk_calibration")
+    feature_columns = _BUNDLE_CACHE.get("feature_columns")
     cleaned = [clean_sequence(s) for s in sequences]
     comp_features = amino_acid_frequency_features(cleaned)
-    X_comp = comp_features.values
-    esm_unavailable = False
-    if esm_dim > 0 and scaler is not None:
-        try:
-            X_esm = _embed_sequences(cleaned)
-            X = np.hstack([X_esm, X_comp])
-            feature_df = pd.DataFrame(X, columns=[f"esm_{i}" for i in range(X_esm.shape[1])] + list(comp_features.columns))
-            X_s = scaler.transform(X)
-        except Exception:
-            # Fallback: composition-only if ESM fails (e.g., torch not installed)
-            esm_unavailable = True
-            feature_df = comp_features
-            X_s = X_comp
-    else:
-        feature_df = comp_features
-        X_s = X_comp
-    probs = model.predict_proba(X_s)[:, 1]
+    # Align columns to training order if available
+    if feature_columns:
+        comp_features = comp_features.reindex(columns=feature_columns, fill_value=0.0)
+    # Pipeline handles scaling internally — pass DataFrame directly
+    probs = model.predict_proba(comp_features)[:, 1]
     preds = (probs >= 0.5).astype(int)
-    atypicality_scores = _compute_atypicality_scores(feature_df, preds, calibration)
+    atypicality_scores = _compute_atypicality_scores(comp_features, preds, calibration)
+    esm_unavailable = False
     output = []
     for sequence, prob, pred, atyp_info in zip(cleaned, probs, preds, atypicality_scores):
         atyp_index = atyp_info["atypicality_index"]

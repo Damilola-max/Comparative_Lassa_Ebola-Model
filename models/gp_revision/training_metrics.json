@@ -1,1 +1,21 @@
-{"accuracy":1.0,"precision":1.0,"recall":1.0,"f1":1.0,"roc_auc":1.0,"n_train":2002.0,"n_test":500.0,"n_ebola_train":1377.0,"n_lassa_train":625.0}
+{
+  "best_model": "logistic_regression",
+  "leaderboard": {
+    "logistic_regression": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "roc_auc": 1.0
+    },
+    "random_forest": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "roc_auc": 1.0
+    }
+  },
+  "n_train": 2001,
+  "n_test": 501
+}
