@@ -369,20 +369,19 @@ def _build_pdf_report(result_df: pd.DataFrame) -> bytes:
     story.append(Paragraph("<b>Per-Sequence Results</b>", styles["Heading2"]))
     story.append(Spacer(1, 0.3*cm))
 
-    cell_style = styles["Normal"]
-    cell_style.fontSize = 8
-    cell_style.leading = 10
+    from reportlab.lib.styles import ParagraphStyle
+    cell_style = ParagraphStyle("cell", parent=styles["Normal"], fontSize=8, leading=10, textColor=colors.black)
+    hdr_style = ParagraphStyle("hdr", parent=styles["Normal"], fontSize=9, leading=11,
+                               textColor=colors.whitesmoke, fontName="Helvetica-Bold")
 
     def _cell(text):
         return Paragraph(str(text), cell_style)
 
-    hdr_style = styles["Normal"]
-    hdr_style.fontSize = 9
-    hdr_style.textColor = colors.whitesmoke
-    hdr_style.fontName = "Helvetica-Bold"
+    def _hdr(text):
+        return Paragraph(str(text), hdr_style)
 
-    detail_data = [[_cell("ID"), _cell("Predicted"), _cell("Confidence"),
-                    _cell("Atypicality"), _cell("Band"), _cell("Z-Score")]]
+    detail_data = [[_hdr("ID"), _hdr("Predicted"), _hdr("Confidence"),
+                    _hdr("Atypicality"), _hdr("Band"), _hdr("Z-Score")]]
     for row in result_df.to_dict(orient="records"):
         detail_data.append([
             _cell(str(row["id"])),
