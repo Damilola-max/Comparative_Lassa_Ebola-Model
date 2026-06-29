@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1600" viewBox="0 0 900 1600" style="background-color:#f5f5f5;">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#37474f" />
+            </marker>
+            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.2" />
+            </filter>
+        </defs>
+        <text x="450.0" y="35" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="#263238">End-to-End Viral Surveillance Pipeline</text>
+    
+<g>
+        <rect x="140" y="60" width="620" height="140" rx="12" ry="12" fill="#1565c0" stroke="white" stroke-width="2" />
+        <g transform="translate(160,90.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round">
+            <circle cx="40.0" cy="40.0" r="30.4" />
+            <ellipse cx="40.0" cy="40.0" rx="13.68" ry="30.4" />
+            <line x1="9.600000000000001" y1="40.0" x2="70.4" y2="40.0" />
+            <line x1="40.0" y1="9.600000000000001" x2="40.0" y2="70.4" />
+        </g>
+        <text x="250" y="95" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">1. Data Acquisition</text>
+        <text x="250" y="125" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">NCBI / EpiFlu / Manuscripts</tspan><tspan x="250" dy="18">Raw FASTA files</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="140" y="240" width="620" height="140" rx="12" ry="12" fill="#00897b" stroke="white" stroke-width="2" />
+        <g transform="translate(160,270.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="20.0,16.0 60.0,16.0 44.0,40.0 44.0,68.0 36.0,68.0 36.0,40.0" />
+        </g>
+        <text x="250" y="275" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">2. Sequence Cleaning</text>
+        <text x="250" y="305" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">Remove X/B/Z wildcards</tspan><tspan x="250" dy="18">Strip U/O, drop short fragments</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="140" y="420" width="620" height="140" rx="12" ry="12" fill="#6a1b9a" stroke="white" stroke-width="2" />
+        <g transform="translate(160,450.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round">
+            <circle cx="33.6" cy="33.6" r="17.6" />
+            <line x1="46.4" y1="46.4" x2="64.0" y2="64.0" />
+            <rect x="14.399999999999999" y="57.599999999999994" width="51.2" height="11.200000000000001" rx="2" />
+        </g>
+        <text x="250" y="455" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">3. Metadata Parsing</text>
+        <text x="250" y="485" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">Extract accession, country</tspan><tspan x="250" dy="18">Collection date, lineage</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="140" y="600" width="295.0" height="140" rx="12" ry="12" fill="#ef6c00" stroke="white" stroke-width="2" />
+        <g transform="translate(160,630.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="12.0" y="44.0" width="12.0" height="24.0" rx="2" fill="white" />
+            <rect x="33.6" y="28.0" width="12.0" height="40.0" rx="2" fill="white" />
+            <rect x="56.0" y="36.0" width="12.0" height="32.0" rx="2" fill="white" />
+            <circle cx="60.0" cy="20.0" r="8.0" fill="white" />
+        </g>
+        <text x="250" y="635" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">4. Feature Engineering A</text>
+        <text x="250" y="665" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">AA frequencies + length</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="465.0" y="600" width="295.0" height="140" rx="12" ry="12" fill="#d84315" stroke="white" stroke-width="2" />
+        <g transform="translate(485.0,630.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="40.0" y1="16.0" x2="40.0" y2="36.0" />
+            <line x1="40.0" y1="36.0" x2="24.0" y2="52.0" />
+            <line x1="40.0" y1="36.0" x2="56.0" y2="52.0" />
+            <line x1="24.0" y1="52.0" x2="16.0" y2="68.0" />
+            <line x1="24.0" y1="52.0" x2="32.0" y2="68.0" />
+            <line x1="56.0" y1="52.0" x2="48.0" y2="68.0" />
+            <line x1="56.0" y1="52.0" x2="64.0" y2="68.0" />
+            <circle cx="40.0" cy="16.0" r="5.6000000000000005" fill="white" />
+        </g>
+        <text x="575.0" y="635" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">4. Feature Engineering B</text>
+        <text x="575.0" y="665" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="575.0" dy="18">ESM-2 embeddings</tspan><tspan x="575.0" dy="18">(esm2_t12_35M)</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="140" y="780" width="295.0" height="140" rx="12" ry="12" fill="#c62828" stroke="white" stroke-width="2" />
+        <g transform="translate(160,810.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="12.0" y="44.0" width="12.0" height="24.0" rx="2" fill="white" />
+            <rect x="33.6" y="28.0" width="12.0" height="40.0" rx="2" fill="white" />
+            <rect x="56.0" y="36.0" width="12.0" height="32.0" rx="2" fill="white" />
+            <circle cx="60.0" cy="20.0" r="8.0" fill="white" />
+        </g>
+        <text x="250" y="815" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">5. Model Training & Calibration A</text>
+        <text x="250" y="845" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">AA frequencies + length</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="465.0" y="780" width="295.0" height="140" rx="12" ry="12" fill="#d84315" stroke="white" stroke-width="2" />
+        <g transform="translate(485.0,810.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="40.0" y1="16.0" x2="40.0" y2="36.0" />
+            <line x1="40.0" y1="36.0" x2="24.0" y2="52.0" />
+            <line x1="40.0" y1="36.0" x2="56.0" y2="52.0" />
+            <line x1="24.0" y1="52.0" x2="16.0" y2="68.0" />
+            <line x1="24.0" y1="52.0" x2="32.0" y2="68.0" />
+            <line x1="56.0" y1="52.0" x2="48.0" y2="68.0" />
+            <line x1="56.0" y1="52.0" x2="64.0" y2="68.0" />
+            <circle cx="40.0" cy="16.0" r="5.6000000000000005" fill="white" />
+        </g>
+        <text x="575.0" y="815" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">5. Model Training & Calibration B</text>
+        <text x="575.0" y="845" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="575.0" dy="18">ESM-2 embeddings</tspan><tspan x="575.0" dy="18">(esm2_t12_35M)</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="140" y="960" width="620" height="140" rx="12" ry="12" fill="#455a64" stroke="white" stroke-width="2" />
+        <g transform="translate(160,990.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M 28.0 12.0 L 28.0 36.0 L 16.0 68.0 L 64.0 68.0 L 52.0 36.0 L 52.0 12.0" />
+            <line x1="24.0" y1="12.0" x2="56.0" y2="12.0" />
+            <line x1="20.0" y1="54.400000000000006" x2="60.0" y2="54.400000000000006" stroke-dasharray="4,3" />
+        </g>
+        <text x="250" y="995" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">6. Validation & QA</text>
+        <text x="250" y="1025" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">Stratified & grouped CV</tspan><tspan x="250" dy="18">Ablation & edge-case panels</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="140" y="1140" width="620" height="140" rx="12" ry="12" fill="#2e7d32" stroke="white" stroke-width="2" />
+        <g transform="translate(160,1170.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round">
+            <path d="M 24.0 12.0 Q 44.0 24.0 24.0 40.0 Q 4.0 56.0 24.0 68.0" />
+            <path d="M 56.0 12.0 Q 36.0 24.0 56.0 40.0 Q 76.0 56.0 56.0 68.0" />
+            <line x1="30.4" y1="25.6" x2="49.6" y2="25.6" />
+            <line x1="30.4" y1="54.400000000000006" x2="49.6" y2="54.400000000000006" />
+        </g>
+        <text x="250" y="1175" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">7. Site-Level Analysis</text>
+        <text x="250" y="1205" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">Shannon entropy evaluation</tspan><tspan x="250" dy="18">Glycoprotein alignment mapping</tspan>
+        </text>
+    </g>
+<g>
+        <rect x="140" y="1320" width="620" height="140" rx="12" ry="12" fill="#0277bd" stroke="white" stroke-width="2" />
+        <g transform="translate(160,1350.0)" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="12.0" y="12.0" width="56.0" height="56.0" rx="4" />
+            <line x1="12.0" y1="25.6" x2="68.0" y2="25.6" />
+            <circle cx="57.599999999999994" cy="18.799999999999997" r="4.0" fill="white" />
+            <circle cx="64.0" cy="18.799999999999997" r="4.0" fill="white" />
+            <rect x="20.0" y="36.0" width="14.399999999999999" height="24.0" rx="2" fill="white" />
+            <rect x="40.0" y="44.0" width="14.399999999999999" height="16.0" rx="2" fill="white" />
+        </g>
+        <text x="250" y="1355" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="white">8. Streamlit Dashboard</text>
+        <text x="250" y="1385" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="white">
+            <tspan x="250" dy="18">Drag-and-drop FASTA upload</tspan><tspan x="250" dy="18">Real-time charts, CSV & PDF export</tspan>
+        </text>
+    </g>
+<g>
+        <line x1="450.0" y1="202" x2="450.0" y2="238" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="450.0" y1="382" x2="450.0" y2="418" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="450.0" y1="562" x2="287.5" y2="598" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="450.0" y1="562" x2="612.5" y2="598" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="287.5" y1="742" x2="287.5" y2="778" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="612.5" y1="742" x2="612.5" y2="778" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="287.5" y1="922" x2="450.0" y2="958" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="612.5" y1="922" x2="450.0" y2="958" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="450.0" y1="1102" x2="450.0" y2="1138" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+<g>
+        <line x1="450.0" y1="1282" x2="450.0" y2="1318" stroke="#37474f" stroke-width="3" marker-end="url(#arrowhead)" />
+    </g>
+</svg>
