@@ -209,10 +209,7 @@ Patterns suggesting **positive selection**:
 
 ## References
 
-- [ESM: Language Models for Proteins (Meta/Facebook)](https://github.com/facebookresearch/esm)
-- [ProtBERT Embeddings](https://huggingface.co/Rostlab/prot_bert)
-- [Mutation Scoring Methods](https://huggingface.co/blog/AmelieSchreiber/mutation-scoring)
-- [Computational Biology with ML](https://310.ai/blog/computational-biology-with-ml-models)
+- Kolawole, O.M., Olayemi, D.M., Taiwo, D.I. et al. ESM-embedR: a protein language model framework for comparative mutation analysis and computational atypicality scoring of Lassa and Ebola virus sequences. BMC Bioinformatics (2026). https://doi.org/10.1186/s12859-026-06579-w 
 
 
 ## Contact
